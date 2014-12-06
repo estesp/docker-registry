@@ -28,7 +28,7 @@ test:
     - go vet ./...
     - test -z $(golint ./...          | tee /dev/stderr)
     - pwd:
-      - pwd: $HOME/.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
+        pwd: $HOME/.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
     - cd $HOME/.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME && go list ./... | xargs -I{} goveralls -repotoken $COVERALLS_TOKEN -race {}
 
 # Add coverage back in later
