@@ -27,7 +27,8 @@ test:
     - test -z $(gofmt -s -l . | tee /dev/stderr)
     - go vet ./...
     - test -z $(golint ./...          | tee /dev/stderr)
-    - pwd
+    - pwd:
+      - pwd: $HOME/.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
     - cd $HOME/.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME && go list ./... | xargs -I{} goveralls -repotoken $COVERALLS_TOKEN -race {}
 
 # Add coverage back in later
@@ -44,7 +45,8 @@ general:
       - 0.8
       - 0.9
       - 1.0
-  build_dir: ../.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
+  # This doesn't work, but it would be nice if it did.
+  # build_dir: ../.go_project/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME
 
 # notify:
 #     email:
