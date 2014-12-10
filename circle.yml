@@ -1,25 +1,48 @@
 machine:
   pre:
-    - curl -o go.tar.gz -sL https://golang.org/dl/go1.4rc2.linux-amd64.tar.gz
-    - sudo rm -rf /usr/local/go
-    - sudo tar -C /usr/local -xzf go.tar.gz
-    - sudo chmod a+w /usr/local/go/src/
+    # This one has crap
+    # - ls -lAR /usr/local/go_workspace
+    # This one is empty
+    # - ls -lA /home/ubuntu/.go_workspace
+    # This one is empty
+    # - ls -lA /home/ubuntu/.go_project
+
+    # - curl -o go13.tar.gz -sL https://golang.org/dl/go1.3.linux-amd64.tar.gz
+    # - sudo mkdir /usr/local/go13
+    # - sudo tar -C /usr/local/go13 -xzf go13.tar.gz
+    # - sudo chmod a+w /usr/local/go13/src/
+
+    - curl -o go14.tar.gz -sL https://golang.org/dl/go1.4rc2.linux-amd64.tar.gz
+    - sudo mkdir /usr/local/go14
+    - sudo tar -C /usr/local/go14 -xzf go14.tar.gz
+    - sudo chmod a+w /usr/local/go14/go
+
+
+    # - sudo mkdir /usr/local/go14
+    # - sudo tar -C /usr/local/go14 -xzf go14.tar.gz
+    # - sudo chmod a+w /usr/local/go14/go/src/
+
+  environment:
+    PATH: /usr/local/go14/go/bin:$PATH
+    GOROOT: /usr/local/go14/go
+    GOPATH: /home/ubuntu/.go_project
 
   hosts:
     fancy: 127.0.0.1
 
 dependencies:
-  post:
-    - go get github.com/axw/gocov/gocov
-    - go get github.com/mattn/goveralls
-    - go get github.com/golang/lint/golint
+  pre:
+    # - go get golang.org/x/tools/cmd/vet
+    # - go get github.com/axw/gocov/gocov
+    # - go get github.com/mattn/goveralls
+    # - go get github.com/golang/lint/golint
 
 test:
   pre:
     - go version
   override:
-    - test -z $(gofmt -s -l . | tee /dev/stderr)
     - go vet ./...
+    - test -z $(gofmt -s -l . | tee /dev/stderr)
     - test -z $(golint ./...          | tee /dev/stderr)
     - go test -test.v ./...
 

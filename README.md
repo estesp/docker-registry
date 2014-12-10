@@ -12,6 +12,5 @@
 [coverage-image]: https://coveralls.io/repos/docker/docker-registry/badge.png
 [coverage-url]: https://coveralls.io/r/docker/docker-registry
 
-[build-image]: https://ci.dockerproject.com/github.com/docker/docker-registry/status.svg?branch=next-generation
-[build-url]: https://ci.dockerproject.com/github.com/docker/docker-registry?branch=next-generation
-
+[build-image]: https://circleci.com/gh/docker/docker-registry/tree/next-generation.svg?style=svg
+[build-url]: https://circleci.com/gh/docker/docker-registry/tree/next-generation
