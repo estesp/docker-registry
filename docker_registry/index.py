@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import re
+
 import flask
 
 from docker_registry.core import compat
@@ -13,6 +15,7 @@ from .lib import signals
 
 from .app import app  # noqa
 
+RE_USER_AGENT = re.compile('([^\s/]+)/([^\s/]+)')
 
 store = storage.load()
 
@@ -51,7 +54,7 @@ def put_username(username):
     return toolkit.response('', 204)
 
 
-def update_index_images(namespace, repository, data_arg):
+def update_index_images(namespace, repository, data_arg, arch, os):
     path = store.index_images_path(namespace, repository)
     sender = flask.current_app._get_current_object()
     try:
@@ -70,13 +73,27 @@ def update_index_images(namespace, repository, data_arg):
         data = images.values()
         # Note(dmp): unicode patch
         store.put_json(path, data)
+
+        # Get image arch and os from the json property, although
+        # we have to do it safely in case this is an image with no
+        # image data (e.g. testcase mock-up images)
+        try:
+            img_data = store.get_content(store.image_json_path(data[0]['id']))
+            arch = json.loads(img_data)['architecture']
+            os = json.loads(img_data)['os']
+        except exceptions.FileNotFoundError:
+            # no img data for this image, but it still exists
+            # leave the default arch/os that were passed in
+            pass
+
         signals.repository_updated.send(
-            sender, namespace=namespace, repository=repository, value=data)
+            sender, namespace=namespace, repository=repository,
+            value=data, arch=arch, os=os)
     except exceptions.FileNotFoundError:
         signals.repository_created.send(
             sender, namespace=namespace, repository=repository,
             # Note(dmp): unicode patch
-            value=json.loads(data_arg.decode('utf8')))
+            value=json.loads(data_arg.decode('utf8')), arch=arch, os=os)
         store.put_content(path, data_arg)
 
 
@@ -88,6 +105,17 @@ def update_index_images(namespace, repository, data_arg):
 @toolkit.requires_auth
 def put_repository(namespace, repository, images=False):
     data = None
+    # Default arch/os are amd64/linux
+    arch = 'amd64'
+    os = 'linux'
+    # If caller is docker host, retrieve arch/os from user agent
+    user_agent = flask.request.headers.get('user-agent', '')
+    ua = dict(RE_USER_AGENT.findall(user_agent))
+    if 'arch' in ua:
+        arch = ua['arch']
+    if 'os' in ua:
+        os = ua['os']
+
     try:
         # Note(dmp): unicode patch
         data = json.loads(flask.request.data.decode('utf8'))
@@ -95,7 +123,7 @@ def put_repository(namespace, repository, images=False):
         return toolkit.api_error('Error Decoding JSON', 400)
     if not isinstance(data, list):
         return toolkit.api_error('Invalid data')
-    update_index_images(namespace, repository, flask.request.data)
+    update_index_images(namespace, repository, flask.request.data, arch, os)
     headers = generate_headers(namespace, repository, 'write')
     code = 204 if images is True else 200
     return toolkit.response('', code, headers)
@@ -107,9 +135,37 @@ def put_repository(namespace, repository, images=False):
 @mirroring.source_lookup(index_route=True)
 def get_repository_images(namespace, repository):
     data = None
+    # Default arch/os are amd64/linux
+    arch = 'amd64'
+    os = 'linux'
+    # If caller is docker host, retrieve arch/os from user agent
+    user_agent = flask.request.headers.get('user-agent', '')
+    ua = dict(RE_USER_AGENT.findall(user_agent))
+    if 'arch' in ua:
+        arch = ua['arch']
+    if 'os' in ua:
+        os = ua['os']
+
     try:
         path = store.index_images_path(namespace, repository)
-        data = store.get_content(path)
+        json_data = store.get_json(path)
+        # we may not have image data (mocked up tests, etc.) so try/except
+        # on parsing arch and os--and ignore/continue if this is an image
+        # with no data
+        try:
+            img_data = store.get_content(store.image_json_path(
+                                         json_data[0]['id']))
+            # Get image arch and os from the json property
+            img_arch = json.loads(img_data)['architecture']
+            img_os = json.loads(img_data)['os']
+            if arch != img_arch or os != img_os:
+                return toolkit.api_error('images not found for arch/os pair',
+                                         404)
+            else:
+                data = store.get_content(path)
+        except exceptions.FileNotFoundError:
+            # simply return the data if image data does not exist
+            data = store.get_content(path)
     except exceptions.FileNotFoundError:
         return toolkit.api_error('images not found', 404)
     headers = generate_headers(namespace, repository, 'read')

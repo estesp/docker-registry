@@ -52,17 +52,17 @@ class Index (object):
                 yield({'name': name, 'description': description})
 
     def _handle_repository_created(
-            self, sender, namespace, repository, value):
+            self, sender, namespace, repository, value, arch, os):
         pass
 
     def _handle_repository_updated(
-            self, sender, namespace, repository, value):
+            self, sender, namespace, repository, value, arch, os):
         pass
 
     def _handle_repository_deleted(self, sender, namespace, repository):
         pass
 
-    def results(self, search_term=None):
+    def results(self, search_term=None, arch=None, os=None):
         """Return a list of results matching search_term
 
         The list elements should be dictionaries:

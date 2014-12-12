@@ -42,10 +42,16 @@ class Repository (Base):
         nullable=False, unique=True)
     description = sqlalchemy.Column(
         sqlalchemy.String(length=100))
+    arch = sqlalchemy.Column(
+        sqlalchemy.String(length=10))
+    os = sqlalchemy.Column(
+        sqlalchemy.String(length=10))
 
     def __repr__(self):
-        return "<{0}(name='{1}', description='{2}')>".format(
-            type(self).__name__, self.name, self.description)
+        rep_str = ("<{0}(name='{1}', description='{2}', arch='{3}', "
+                   "os='{4}')>")
+        return rep_str.format(type(self).__name__, self.name,
+                              self.description, self.arch, self.os)
 
 
 def retry(f):
@@ -117,24 +123,25 @@ class SQLAlchemyIndex (Index):
 
     @retry
     def _handle_repository_created(
-            self, sender, namespace, repository, value):
+            self, sender, namespace, repository, value, arch, os):
         name = '{0}/{1}'.format(namespace, repository)
         description = ''  # TODO(wking): store descriptions
         session = self._session()
-        session.add(Repository(name=name, description=description))
+        session.add(Repository(name=name, description=description, arch=arch,
+                    os=os))
         session.commit()
         session.close()
 
     @retry
     def _handle_repository_updated(
-            self, sender, namespace, repository, value):
+            self, sender, namespace, repository, value, arch, os):
         name = '{0}/{1}'.format(namespace, repository)
         description = ''  # TODO(wking): store descriptions
         session = self._session()
         session.query(Repository).filter(
             Repository.name == name
         ).update(
-            values={'description': description},
+            values={'description': description, 'arch': arch, 'os': os},
             synchronize_session=False
         )
         session.commit()
@@ -149,7 +156,7 @@ class SQLAlchemyIndex (Index):
         session.close()
 
     @retry
-    def results(self, search_term=None):
+    def results(self, search_term=None, arch=None, os=None):
         session = self._session()
         repositories = session.query(Repository)
         if search_term:
@@ -157,11 +164,17 @@ class SQLAlchemyIndex (Index):
             repositories = repositories.filter(
                 sqlalchemy.sql.or_(
                     Repository.name.like(like_term),
-                    Repository.description.like(like_term)))
+                    Repository.description.like(like_term)),
+                sqlalchemy.sql.and_(
+                    Repository.arch.like(arch)),
+                sqlalchemy.sql.and_(
+                    Repository.os.like(os)))
         results = [
             {
                 'name': repo.name,
                 'description': repo.description,
+                'arch': repo.arch,
+                'os': repo.os,
             }
             for repo in repositories]
         session.close()
